@@ -5,6 +5,9 @@ import { MapPin, Users, DollarSign, TrendingUp, Star, ShoppingBag, Utensils, Wav
 import { supabase } from "@/integrations/supabase/client";
 import { SuburbMap } from "@/components/SuburbMap";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+const PENINSULA_SUBURBS = ['Sorrento', 'Blairgowrie', 'Rye', 'Portsea'];
 
 export default function SuburbsPage() {
   const [suburbs, setSuburbs] = useState<any[]>([]);
@@ -20,6 +23,7 @@ export default function SuburbsPage() {
       const { data, error } = await supabase
         .from('suburbs')
         .select('*')
+        .in('name', PENINSULA_SUBURBS)
         .order('name');
 
       if (error) throw error;
@@ -82,20 +86,26 @@ export default function SuburbsPage() {
             </p>
           </div>
           {suburbs.length > 1 && (
-            <select 
-              value={selectedSuburb.name}
-              onChange={(e) => {
-                const suburb = suburbs.find(s => s.name === e.target.value);
-                setSelectedSuburb(suburb);
-              }}
-              className="px-4 py-2 rounded-lg border border-border bg-background"
-            >
-              {suburbs.map(suburb => (
-                <option key={suburb.name} value={suburb.name}>
-                  {suburb.name}
-                </option>
-              ))}
-            </select>
+            <div className="w-[200px]">
+              <Select 
+                value={selectedSuburb.name}
+                onValueChange={(name) => {
+                  const suburb = suburbs.find(s => s.name === name);
+                  setSelectedSuburb(suburb);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select suburb" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suburbs.map(suburb => (
+                    <SelectItem key={suburb.name} value={suburb.name}>
+                      {suburb.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
 
