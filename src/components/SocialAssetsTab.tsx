@@ -137,7 +137,8 @@ export function SocialAssetsTab({ listingId, listingData, enrichmentData }: Soci
       reels_short: 'Short Reel (15s)',
       reels_long: 'Long Reel (60s)',
       reels_deep: 'Story Reel (90s)',
-      carousel: 'Carousel Post'
+      carousel: 'Carousel Post',
+      realestate: 'Realestate.com.au Listing'
     };
     return labels[type] || type;
   };
@@ -148,7 +149,8 @@ export function SocialAssetsTab({ listingId, listingData, enrichmentData }: Soci
       reels_short: 'Quick property tour highlight',
       reels_long: 'Complete walkthrough video',
       reels_deep: 'In-depth story with narrative',
-      carousel: 'Multi-slide swipeable post'
+      carousel: 'Multi-slide swipeable post',
+      realestate: 'Professional listing image for Realestate.com.au (1200x800)'
     };
     return descriptions[type] || '';
   };
