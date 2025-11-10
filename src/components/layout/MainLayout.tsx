@@ -37,7 +37,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <div className="flex items-center gap-8">
               <Link to="/dashboard" className="flex items-center gap-2">
                 <Building2 className="h-6 w-6 text-primary" />
-                <span className="text-xl font-bold text-foreground">ACME Real Estate</span>
+                <span className="text-xl font-bold text-foreground">Bev's Little Helper</span>
               </Link>
               <div className="hidden md:flex items-center gap-1">
                 {navigation.map((item) => (

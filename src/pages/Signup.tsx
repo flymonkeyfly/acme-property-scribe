@@ -47,7 +47,7 @@ export default function Signup() {
         <CardHeader className="space-y-1">
           <div className="flex items-center gap-2 mb-4">
             <Building2 className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold text-foreground">ACME Real Estate</span>
+            <span className="text-2xl font-bold text-foreground">Bev's Little Helper</span>
           </div>
           <CardTitle className="text-2xl">Create account</CardTitle>
           <CardDescription>
