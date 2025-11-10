@@ -52,34 +52,50 @@ export default function ListingWorkspace() {
     try {
       const fullAddress = `${listing.address_line}, ${listing.suburb} ${listing.state} ${listing.postcode}`;
       
-      // Call geocode
-      const { data: geocodeResult } = await supabase.functions.invoke("geocode", {
-        body: { address: fullAddress }
-      });
+      let { lat, lng } = listing;
+      
+      // Call geocode if coordinates missing
+      if (lat == null || lng == null) {
+        const { data: geocodeResult } = await supabase.functions.invoke("geocode", {
+          body: { address: fullAddress }
+        });
 
-      if (!geocodeResult?.ok) {
-        throw new Error("Geocoding failed");
+        if (!geocodeResult?.ok) {
+          throw new Error("Geocoding failed");
+        }
+
+        lat = geocodeResult.data.lat;
+        lng = geocodeResult.data.lng;
+
+        // Update listing with coordinates
+        await supabase
+          .from("listings")
+          .update({ lat, lng })
+          .eq("id", id);
       }
 
-      const { lat, lng } = geocodeResult.data;
-
-      // Update listing with coordinates
-      await supabase
-        .from("listings")
-        .update({ lat, lng })
-        .eq("id", id);
-
       // Call enrichment functions in parallel
-      const [schoolsRes, planningRes, heritageRes, ptvRes, poisRes, mediansRes] = await Promise.all([
+      const [schoolsRes, planningRes, heritageRes, ptvRes, poisARes, poisBRes, mediansRes] = await Promise.all([
         supabase.functions.invoke("schools_nearby", { body: { lat, lng, address: fullAddress }}),
         supabase.functions.invoke("vicplan_overlays", { body: { lat, lng }}),
         supabase.functions.invoke("heritage_lookup", { body: { lat, lng }}),
         supabase.functions.invoke("ptv_nearest", { body: { lat, lng }}),
         supabase.functions.invoke("places_nearby", { 
-          body: { lat, lng, types: ["cafe", "restaurant", "supermarket", "park", "beach"] }
+          body: { lat, lng, types: ["cafe", "restaurant"], radius_m: 800 }
+        }),
+        supabase.functions.invoke("places_nearby", { 
+          body: { lat, lng, types: ["supermarket", "park", "beach"], radius_m: 1200 }
         }),
         supabase.functions.invoke("vgv_medians", { body: { suburb: listing.suburb }})
       ]);
+
+      // Merge POIs from both calls
+      const mergedPois = {
+        places: [
+          ...(poisARes.data?.data?.places || []),
+          ...(poisBRes.data?.data?.places || [])
+        ]
+      };
 
       // Save enrichment
       const enrichmentData = {
@@ -88,7 +104,7 @@ export default function ListingWorkspace() {
         planning_overlays_json: planningRes.data?.data || {},
         heritage_json: heritageRes.data?.data || {},
         ptv_json: ptvRes.data?.data || {},
-        pois_json: poisRes.data?.data || {},
+        pois_json: mergedPois,
         suburb_medians_json: mediansRes.data?.data || {},
         generated_at: new Date().toISOString(),
       };
@@ -186,28 +202,127 @@ export default function ListingWorkspace() {
           </TabsContent>
 
           <TabsContent value="facts">
-            {enrichment ? (
-              <div className="space-y-6">
-                {enrichment.schools_json?.top3 && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Nearby Schools</h3>
+            {enriching ? (
+              <div className="text-sm text-muted-foreground">Fetching local facts…</div>
+            ) : enrichment ? (
+              <div className="space-y-8">
+                {/* Nearby Schools */}
+                <section>
+                  <h3 className="font-semibold mb-3 text-foreground">Nearby Schools</h3>
+                  {enrichment.schools_json?.top3?.length ? (
                     <ul className="space-y-2">
                       {enrichment.schools_json.top3.map((school: any, i: number) => (
-                        <li key={i} className="p-3 bg-muted rounded">
-                          <div className="font-medium">{school.name}</div>
-                          <div className="text-sm text-muted-foreground">{school.sector} · {school.level} · ~{school.distance_m}m</div>
+                        <li key={i} className="text-sm text-foreground">
+                          <span className="font-medium">{school.name}</span>
+                          {school.sector && <> · {school.sector}</>}
+                          {school.level && <> · {school.level}</>}
+                          {school.distance_m != null && <> · {school.distance_m < 1000 ? `${school.distance_m} m` : `${(school.distance_m / 1000).toFixed(1)} km`}</>}
                         </li>
                       ))}
                     </ul>
-                    {enrichment.schools_json.find_my_school_url && (
-                      <Button variant="outline" size="sm" className="mt-3" asChild>
-                        <a href={enrichment.schools_json.find_my_school_url} target="_blank" rel="noopener noreferrer">
-                          Check official zones
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No nearby schools found yet.</p>
+                  )}
+                  {enrichment.schools_json?.find_my_school_url && (
+                    <Button variant="outline" size="sm" className="mt-3" asChild>
+                      <a href={enrichment.schools_json.find_my_school_url} target="_blank" rel="noopener noreferrer">
+                        Check official zones
+                      </a>
+                    </Button>
+                  )}
+                </section>
+
+                {/* Planning & Overlays */}
+                <section>
+                  <h3 className="font-semibold mb-3 text-foreground">Planning & Overlays</h3>
+                  {enrichment.planning_overlays_json?.overlays?.length ? (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {enrichment.planning_overlays_json.overlays.map((overlay: any, i: number) => (
+                        <span key={i} className="inline-flex items-center rounded-full border border-border bg-muted px-3 py-1 text-xs font-medium">
+                          {overlay.code || overlay.name || "Overlay"}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      No overlays parsed — verify in VicPlan.
+                    </p>
+                  )}
+                  {enrichment.planning_overlays_json?.verify_link && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={enrichment.planning_overlays_json.verify_link} target="_blank" rel="noopener noreferrer">
+                        Verify in VicPlan
+                      </a>
+                    </Button>
+                  )}
+                </section>
+
+                {/* Heritage */}
+                <section>
+                  <h3 className="font-semibold mb-3 text-foreground">Heritage</h3>
+                  {enrichment.heritage_json?.records?.length ? (
+                    <ul className="space-y-1 mb-3">
+                      {enrichment.heritage_json.records.map((record: any, i: number) => (
+                        <li key={i} className="text-sm text-foreground">
+                          {record.name || "Heritage place"}
+                          {record.distance_m != null && <> · {record.distance_m < 1000 ? `${record.distance_m} m` : `${(record.distance_m / 1000).toFixed(1)} km`}</>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mb-3">
+                      No state heritage records found in search radius — check council / official database.
+                    </p>
+                  )}
+                  {enrichment.heritage_json?.verify_link && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={enrichment.heritage_json.verify_link} target="_blank" rel="noopener noreferrer">
+                        Check Victorian Heritage Database
+                      </a>
+                    </Button>
+                  )}
+                </section>
+
+                {/* Transport */}
+                <section>
+                  <h3 className="font-semibold mb-3 text-foreground">Transport</h3>
+                  {enrichment.ptv_json?.nearest?.length ? (
+                    <ul className="space-y-1 mb-3">
+                      {enrichment.ptv_json.nearest.map((stop: any, i: number) => (
+                        <li key={i} className="text-sm text-foreground">
+                          {stop.stop_name || stop.name || "Nearby stop"}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mb-3">No stops loaded — check PTV.</p>
+                  )}
+                  {enrichment.ptv_json?.verify_link && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={enrichment.ptv_json.verify_link} target="_blank" rel="noopener noreferrer">
+                        View on PTV
+                      </a>
+                    </Button>
+                  )}
+                </section>
+
+                {/* Lifestyle */}
+                <section>
+                  <h3 className="font-semibold mb-3 text-foreground">Lifestyle</h3>
+                  {enrichment.pois_json?.places?.length ? (
+                    <ul className="space-y-1">
+                      {enrichment.pois_json.places.map((poi: any, i: number) => (
+                        <li key={i} className="text-sm text-foreground">
+                          {poi.type ? `${poi.type.charAt(0).toUpperCase()}${poi.type.slice(1)}` : "Place"}
+                          {" — "}
+                          {poi.displayName?.text || poi.name || "Nearby"}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No nearby places loaded yet.</p>
+                  )}
+                </section>
               </div>
             ) : (
               <p className="text-muted-foreground">Enrich listing to view facts</p>
