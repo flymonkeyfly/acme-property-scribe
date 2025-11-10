@@ -9,7 +9,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { assetType, listingData, caption } = await req.json();
+    const { assetType, listingData, caption, enrichmentData } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     
     if (!LOVABLE_API_KEY) {
@@ -20,24 +20,85 @@ Deno.serve(async (req) => {
     let prompt = '';
     const address = `${listingData.address_line}, ${listingData.suburb}`;
     
+    // Build context about location amenities
+    let locationContext = '';
+    if (enrichmentData) {
+      const schools = enrichmentData.schools_json?.top3?.map((s: any) => s.name).join(', ') || '';
+      const transport = enrichmentData.ptv_json?.nearest?.[0]?.stop_name || '';
+      const pois = enrichmentData.pois_json?.places?.map((p: any) => p.displayName?.text || p.name).slice(0, 3).join(', ') || '';
+      
+      locationContext = `
+Location highlights:
+- Nearby schools: ${schools || 'Quality schools in the area'}
+- Transport: ${transport || 'Convenient public transport access'}
+- Lifestyle: ${pois || 'Parks, cafes, and amenities nearby'}
+`;
+    }
+    
+    const propertyDetails = `${listingData.beds}BR | ${listingData.baths}BA | ${listingData.land_size_sqm}sqm`;
+    
     switch (assetType) {
       case 'post':
-        prompt = `Create a professional Instagram square post for a luxury real estate property at ${address}. ${listingData.beds} bedrooms, ${listingData.baths} bathrooms, ${listingData.land_size_sqm} sqm land. Modern architectural design with clean lines, timber cladding, and premium finishes. Make it elegant, aspirational, and suitable for luxury property marketing. Include subtle property details overlay.`;
+        prompt = `Create a stunning Instagram square post for ${address}. 
+
+Property: ${propertyDetails}
+${locationContext}
+
+Design: Modern architectural masterpiece with timber cladding, premium finishes, and resort-style pool. 
+
+Marketing narrative: Imagine waking up in this coastal haven where modern luxury meets lifestyle perfection. Steps from pristine beaches, surrounded by quality schools, and connected to everything that matters. This is more than a home - it's your new lifestyle.
+
+Include elegant text overlay with address and key details. Professional real estate marketing style, aspirational and sophisticated.`;
         break;
       case 'reels_short':
-        prompt = `Create a dynamic Instagram reel cover for a luxury property at ${address}. ${listingData.beds}BR/${listingData.baths}BA modern home. Eye-catching, vertical format, perfect for a quick property tour video. Bold, energetic, premium feel.`;
+        prompt = `Create an eye-catching Instagram reel cover for ${address}.
+
+Property: ${propertyDetails}
+${locationContext}
+
+Story: Experience coastal elegance just minutes from the beach. Premium schools, easy transport, and everything you love about peninsula living. Your dream lifestyle starts here.
+
+Vertical format, bold text overlay with property highlights. Dynamic, energetic, premium real estate feel.`;
         break;
       case 'reels_long':
-        prompt = `Create a cinematic Instagram reel thumbnail for an in-depth property tour of ${address}. Showcase the modern architecture, ${listingData.beds} bedrooms, ${listingData.baths} bathrooms. Sophisticated, high-end, worthy of a luxury home walkthrough video.`;
+        prompt = `Create a cinematic Instagram reel cover for ${address}.
+
+Property: ${propertyDetails}
+${locationContext}
+
+Narrative: This isn't just real estate - it's a lifestyle destination. Modern architecture meets family-friendly living in one of the peninsula's most sought-after locations. Quality schools at your doorstep, beaches moments away, and a home that showcases the very best of contemporary design.
+
+Cinematic, sophisticated, with elegant text overlays highlighting location benefits.`;
         break;
       case 'reels_deep':
-        prompt = `Create an emotional, storytelling Instagram reel cover for ${address}. Focus on the lifestyle and experience of living in this ${listingData.beds} bedroom architectural masterpiece. Warm, inviting, aspirational. Perfect for a deep-dive property story.`;
+        prompt = `Create an emotional storytelling Instagram reel cover for ${address}.
+
+Property: ${propertyDetails}
+${locationContext}
+
+Deep story: Picture Sunday mornings walking to the local cafe, afternoons by your private pool, and evenings watching sunsets from your designer living room. With top-tier schools nearby and the beach just moments away, this home offers the perfect balance of luxury, convenience, and coastal charm. This is where memories are made.
+
+Warm, inviting, emotional. Rich storytelling aesthetic with lifestyle focus.`;
         break;
       case 'carousel':
-        prompt = `Create the first slide of an Instagram carousel post for ${address}. Modern luxury property, ${listingData.beds}BR/${listingData.baths}BA, ${listingData.land_size_sqm}sqm. Include text overlay saying "SWIPE FOR MORE" or similar. Clean, elegant design suitable for premium real estate.`;
+        prompt = `Create the hero slide for an Instagram carousel about ${address}.
+
+Property: ${propertyDetails}
+${locationContext}
+
+Hook: Discover your dream coastal lifestyle. This modern masterpiece combines architectural excellence with unbeatable location - top schools, easy transport, beach access, and everything the peninsula lifestyle offers.
+
+Include "SWIPE FOR MORE" call-to-action. Premium design, property details overlay, location highlights teased.`;
         break;
       default:
-        prompt = `Create a professional social media image for a luxury property at ${address}. Modern design, ${listingData.beds} bedrooms, ${listingData.baths} bathrooms. Premium real estate marketing image.`;
+        prompt = `Create a professional social media image for ${address}.
+
+Property: ${propertyDetails}
+${locationContext}
+
+Lifestyle story: Live where modern luxury meets convenient coastal living. Quality schools, transport connections, and lifestyle amenities all within reach. This is peninsula living perfected.
+
+Professional real estate marketing image with property and location highlights.`;
     }
 
     console.log('Generating image with prompt:', prompt);

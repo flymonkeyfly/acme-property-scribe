@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Download, Loader2 } from "lucide-react";
+import { Sparkles, Download, Loader2, Check, Edit, X } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 interface SocialAsset {
   id: number;
@@ -22,9 +23,10 @@ interface SocialAssetsTabProps {
     baths: number;
     land_size_sqm: number;
   };
+  enrichmentData?: any;
 }
 
-export function SocialAssetsTab({ listingId, listingData }: SocialAssetsTabProps) {
+export function SocialAssetsTab({ listingId, listingData, enrichmentData }: SocialAssetsTabProps) {
   const [assets, setAssets] = useState<SocialAsset[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState<string | null>(null);
@@ -60,7 +62,8 @@ export function SocialAssetsTab({ listingId, listingData }: SocialAssetsTabProps
         body: {
           assetType: asset.type,
           listingData,
-          caption: asset.payload_json.caption
+          caption: asset.payload_json.caption,
+          enrichmentData
         }
       });
 
@@ -88,6 +91,44 @@ export function SocialAssetsTab({ listingId, listingData }: SocialAssetsTabProps
     } finally {
       setGenerating(null);
     }
+  };
+
+  const handleApprove = async (assetId: number) => {
+    try {
+      const { error } = await supabase
+        .from('social_assets')
+        .update({ status: 'ready' })
+        .eq('id', assetId);
+
+      if (error) throw error;
+      
+      toast.success('Asset approved!');
+      loadAssets();
+    } catch (error) {
+      console.error('Error approving asset:', error);
+      toast.error('Failed to approve asset');
+    }
+  };
+
+  const handleDecline = async (assetId: number) => {
+    try {
+      const { error } = await supabase
+        .from('social_assets')
+        .update({ status: 'draft' })
+        .eq('id', assetId);
+
+      if (error) throw error;
+      
+      toast.success('Asset declined');
+      loadAssets();
+    } catch (error) {
+      console.error('Error declining asset:', error);
+      toast.error('Failed to decline asset');
+    }
+  };
+
+  const handleEdit = (asset: SocialAsset) => {
+    toast.info('Edit functionality coming soon!');
   };
 
   const getAssetTypeLabel = (type: string) => {
@@ -142,8 +183,46 @@ export function SocialAssetsTab({ listingId, listingData }: SocialAssetsTabProps
               <CardDescription>{getAssetTypeDescription(asset.type)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Badge variant={asset.status === 'ready' ? 'default' : 'secondary'} className="capitalize">
+                  {asset.status}
+                </Badge>
+                {asset.payload_json.platform && (
+                  <span className="text-xs text-muted-foreground">{asset.payload_json.platform}</span>
+                )}
+              </div>
+
+              {/* Property Details */}
+              <div className="text-sm space-y-1">
+                <div className="font-medium text-foreground">{listingData.address_line}, {listingData.suburb}</div>
+                <div className="text-muted-foreground">
+                  {listingData.beds}BR • {listingData.baths}BA • {listingData.land_size_sqm}sqm
+                </div>
+              </div>
+
+              {/* Location Highlights */}
+              {enrichmentData && (
+                <div className="text-xs space-y-1 text-muted-foreground">
+                  {enrichmentData.schools_json?.top3?.[0] && (
+                    <div>📚 Near {enrichmentData.schools_json.top3[0].name}</div>
+                  )}
+                  {enrichmentData.ptv_json?.nearest?.[0] && (
+                    <div>🚌 {enrichmentData.ptv_json.nearest[0].stop_name}</div>
+                  )}
+                  {enrichmentData.pois_json?.places?.[0] && (
+                    <div>🏞️ Close to parks and amenities</div>
+                  )}
+                </div>
+              )}
+
+              {/* Location Narrative */}
+              <div className="text-xs text-muted-foreground italic border-l-2 border-border pl-3">
+                "Imagine coastal living at its finest - where modern luxury meets convenience. 
+                Quality schools, transport connections, and lifestyle amenities all within reach."
+              </div>
+
               {asset.payload_json.caption && (
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground pt-2 border-t">
                   <strong>Caption:</strong> {asset.payload_json.caption.substring(0, 100)}
                   {asset.payload_json.caption.length > 100 && '...'}
                 </div>
@@ -191,14 +270,37 @@ export function SocialAssetsTab({ listingId, listingData }: SocialAssetsTabProps
                 )}
               </div>
 
-              <div className="flex gap-2 text-xs text-muted-foreground">
-                <span className="capitalize">{asset.status}</span>
-                {asset.payload_json.platform && (
-                  <>
-                    <span>•</span>
-                    <span>{asset.payload_json.platform}</span>
-                  </>
-                )}
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-2 border-t">
+                <Button
+                  onClick={() => handleApprove(asset.id)}
+                  disabled={asset.status === 'ready'}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  Approve
+                </Button>
+                
+                <Button
+                  onClick={() => handleEdit(asset)}
+                  variant="default"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                
+                <Button
+                  onClick={() => handleDecline(asset.id)}
+                  variant="destructive"
+                  className="flex-1"
+                  size="sm"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Decline
+                </Button>
               </div>
             </CardContent>
           </Card>

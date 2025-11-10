@@ -345,6 +345,7 @@ export default function ListingWorkspace() {
                   baths: listing.baths || 0,
                   land_size_sqm: listing.land_size_sqm || 0
                 }}
+                enrichmentData={enrichment}
               />
             )}
           </TabsContent>
