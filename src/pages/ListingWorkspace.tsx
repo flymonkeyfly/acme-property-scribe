@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SocialAssetsTab } from "@/components/SocialAssetsTab";
+import { PropertyOverview } from "@/components/PropertyOverview";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -183,23 +184,9 @@ export default function ListingWorkspace() {
           </TabsList>
 
           <TabsContent value="overview">
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {listing.beds && <div className="p-4 bg-muted rounded-lg"><span className="text-2xl font-bold">{listing.beds}</span><p className="text-sm text-muted-foreground">Beds</p></div>}
-                {listing.baths && <div className="p-4 bg-muted rounded-lg"><span className="text-2xl font-bold">{listing.baths}</span><p className="text-sm text-muted-foreground">Baths</p></div>}
-                {listing.cars && <div className="p-4 bg-muted rounded-lg"><span className="text-2xl font-bold">{listing.cars}</span><p className="text-sm text-muted-foreground">Cars</p></div>}
-                {listing.land_size_sqm && <div className="p-4 bg-muted rounded-lg"><span className="text-2xl font-bold">{listing.land_size_sqm}</span><p className="text-sm text-muted-foreground">m²</p></div>}
-              </div>
-              {!enrichment && (
-                <div className="p-6 border-2 border-dashed border-border rounded-lg text-center">
-                  <p className="text-muted-foreground mb-4">No enrichment data yet</p>
-                  <Button onClick={handleEnrich} disabled={enriching}>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    {enriching ? "Enriching..." : "Enrich Now"}
-                  </Button>
-                </div>
-              )}
-            </div>
+            {listing && (
+              <PropertyOverview listing={listing} enrichment={enrichment} />
+            )}
           </TabsContent>
 
           <TabsContent value="facts">
