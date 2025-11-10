@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SocialAssetsTab } from "@/components/SocialAssetsTab";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -334,7 +335,18 @@ export default function ListingWorkspace() {
           </TabsContent>
 
           <TabsContent value="assets">
-            <p className="text-muted-foreground">AI-generated assets will appear here</p>
+            {listing && (
+              <SocialAssetsTab
+                listingId={listing.id}
+                listingData={{
+                  address_line: listing.address_line,
+                  suburb: listing.suburb,
+                  beds: listing.beds || 0,
+                  baths: listing.baths || 0,
+                  land_size_sqm: listing.land_size_sqm || 0
+                }}
+              />
+            )}
           </TabsContent>
 
           <TabsContent value="compliance">
