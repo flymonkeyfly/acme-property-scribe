@@ -8,12 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import MainLayout from "@/components/layout/MainLayout";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Link as LinkIcon, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
 
 export default function CreateListing() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [scraping, setScraping] = useState(false);
+  const [url, setUrl] = useState("");
   const [formData, setFormData] = useState({
     address_line: "",
     suburb: "",
@@ -64,6 +67,45 @@ export default function CreateListing() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleScrapeUrl = async () => {
+    if (!url.trim()) {
+      toast.error("Please enter a URL");
+      return;
+    }
+
+    setScraping(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape_listing', {
+        body: { url: url.trim() }
+      });
+
+      if (error) throw error;
+
+      if (data.success && data.data) {
+        // Update form with scraped data
+        setFormData({
+          address_line: data.data.address_line || "",
+          suburb: data.data.suburb || "",
+          postcode: data.data.postcode || "",
+          beds: data.data.beds ? String(data.data.beds) : "",
+          baths: data.data.baths ? String(data.data.baths) : "",
+          cars: data.data.cars ? String(data.data.cars) : "",
+          land_size_sqm: data.data.land_size_sqm ? String(data.data.land_size_sqm) : "",
+          property_type: data.data.property_type || "",
+          price_guide_text: data.data.price_guide_text || "",
+        });
+        toast.success(data.message || "Property data imported successfully!");
+      } else {
+        toast.error("Failed to extract property data from URL");
+      }
+    } catch (error: any) {
+      console.error("Error scraping URL:", error);
+      toast.error(error.message || "Failed to scrape listing from URL");
+    } finally {
+      setScraping(false);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="max-w-2xl mx-auto space-y-6">
@@ -78,10 +120,53 @@ export default function CreateListing() {
           <CardHeader>
             <CardTitle>Create New Listing</CardTitle>
             <CardDescription>
-              Enter property details to begin enrichment process
+              Import from URL or enter property details manually
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* URL Import Section */}
+            <div className="space-y-4 mb-6">
+              <div className="space-y-2">
+                <Label htmlFor="listing_url">Import from URL</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="listing_url"
+                    placeholder="https://www.realestate.com.au/property/..."
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    className="flex-1"
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={handleScrapeUrl} 
+                    disabled={scraping || !url.trim()}
+                    variant="secondary"
+                  >
+                    {scraping ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Import
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Paste a listing URL from realestate.com.au, domain.com.au, or similar sites
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <Separator className="flex-1" />
+                <span className="text-xs text-muted-foreground">OR</span>
+                <Separator className="flex-1" />
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
