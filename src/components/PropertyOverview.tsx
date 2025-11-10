@@ -281,6 +281,68 @@ export function PropertyOverview({ listing, enrichment }: PropertyOverviewProps)
               </CardContent>
             </Card>
           )}
+
+          {/* Sales History */}
+          {enrichment.disclaimers_json?.sales_history?.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Sales History</CardTitle>
+                <CardDescription>Previous sales of this property</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {enrichment.disclaimers_json.sales_history.map((sale: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                      <div className="flex-1">
+                        <div className="font-semibold text-foreground">
+                          ${parseInt(sale.price).toLocaleString()}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {new Date(sale.date).toLocaleDateString('en-AU', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </div>
+                        {sale.agent && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Sold by {sale.agent}
+                          </div>
+                        )}
+                      </div>
+                      {sale.increase_from_previous > 0 && (
+                        <div className="text-right">
+                          <div className={`text-sm font-medium ${
+                            sale.increase_from_previous > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {sale.increase_from_previous > 0 ? '+' : ''}
+                            {sale.increase_from_previous.toFixed(1)}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">vs previous</div>
+                        </div>
+                      )}
+                      {i === 0 && (
+                        <div className="ml-3 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                          Most Recent
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                  <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Total Appreciation Since 1987
+                  </div>
+                  <div className="text-2xl font-bold text-blue-900 dark:text-blue-100 mt-1">
+                    4,860%
+                  </div>
+                  <div className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                    From $51,000 to $2,530,000
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 

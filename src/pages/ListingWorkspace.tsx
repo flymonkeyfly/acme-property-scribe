@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SocialAssetsTab } from "@/components/SocialAssetsTab";
 import { PropertyOverview } from "@/components/PropertyOverview";
+import { LeadsTab } from "@/components/LeadsTab";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -342,7 +343,7 @@ export default function ListingWorkspace() {
           </TabsContent>
 
           <TabsContent value="leads">
-            <p className="text-muted-foreground">Lead management coming soon</p>
+            <LeadsTab listingId={id!} />
           </TabsContent>
         </Tabs>
       </div>
