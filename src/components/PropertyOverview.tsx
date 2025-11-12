@@ -4,6 +4,7 @@ import { Download, FileText, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { formatDistanceToNow } from "date-fns";
 
 interface PropertyOverviewProps {
   listing: {
@@ -205,21 +206,59 @@ export function PropertyOverview({ listing, enrichment }: PropertyOverviewProps)
             <Card>
               <CardHeader>
                 <CardTitle>Public Transport</CardTitle>
-                <CardDescription>Easy commuting options</CardDescription>
+                <CardDescription>Live timetable - next departures</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
+                <div className="space-y-4">
                   {enrichment.ptv_json.nearest.map((stop: any, i: number) => (
-                    <div key={i} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                      <div className="text-2xl">🚌</div>
-                      <div className="flex-1">
-                        <div className="font-medium text-foreground">{stop.stop_name}</div>
-                        {stop.stop_suburb && (
-                          <div className="text-sm text-muted-foreground">{stop.stop_suburb}</div>
+                    <div key={i} className="p-4 bg-muted rounded-lg">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="text-2xl">
+                          {stop.route_type === 0 && '🚊'}
+                          {stop.route_type === 1 && '🚋'}
+                          {stop.route_type === 2 && '🚌'}
+                          {stop.route_type === 3 && '🚆'}
+                          {![0, 1, 2, 3].includes(stop.route_type) && '🚌'}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium text-foreground">{stop.stop_name}</div>
+                          {stop.stop_suburb && (
+                            <div className="text-sm text-muted-foreground">{stop.stop_suburb}</div>
+                          )}
+                        </div>
+                        {stop.distance_m != null && (
+                          <div className="text-sm font-medium text-foreground">{stop.distance_m}m</div>
                         )}
                       </div>
-                      {stop.distance_m != null && (
-                        <div className="text-sm font-medium text-foreground">{stop.distance_m}m</div>
+                      
+                      {stop.departures && stop.departures.length > 0 && (
+                        <div className="space-y-2 ml-11">
+                          {stop.departures.map((dep: any, depIdx: number) => {
+                            const departureTime = new Date(dep.estimated_time);
+                            const timeUntil = formatDistanceToNow(departureTime, { addSuffix: true });
+                            const formattedTime = departureTime.toLocaleTimeString('en-AU', { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            });
+                            
+                            return (
+                              <div key={depIdx} className="flex justify-between items-center py-2 px-3 bg-background rounded">
+                                <div className="text-sm text-foreground">
+                                  {formattedTime}
+                                </div>
+                                <div className="text-sm font-medium text-primary">
+                                  {timeUntil.replace('in ', '')}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      {(!stop.departures || stop.departures.length === 0) && (
+                        <div className="text-sm text-muted-foreground ml-11">
+                          No upcoming departures
+                        </div>
                       )}
                     </div>
                   ))}

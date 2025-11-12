@@ -67,21 +67,48 @@ Deno.serve(async (req) => {
 
     const data = await response.json();
     
-    // Transform the response to a simpler format
-    const stops = (data.stops || []).map((stop: any) => ({
-      stop_id: stop.stop_id,
-      stop_name: stop.stop_name,
-      stop_suburb: stop.stop_suburb,
-      route_type: stop.route_type,
-      stop_latitude: stop.stop_latitude,
-      stop_longitude: stop.stop_longitude,
-      distance_m: Math.round(stop.stop_distance || 0),
-    }));
+    // Transform the response and fetch departures for each stop
+    const stopsWithDepartures = await Promise.all(
+      (data.stops || []).slice(0, 5).map(async (stop: any) => {
+        const stopData = {
+          stop_id: stop.stop_id,
+          stop_name: stop.stop_name,
+          stop_suburb: stop.stop_suburb,
+          route_type: stop.route_type,
+          stop_latitude: stop.stop_latitude,
+          stop_longitude: stop.stop_longitude,
+          distance_m: Math.round(stop.stop_distance || 0),
+          departures: [] as any[],
+        };
+
+        try {
+          // Fetch next 3 departures for this stop
+          const departureRequest = `/v3/departures/route_type/${stop.route_type}/stop/${stop.stop_id}?max_results=3`;
+          const departureUrl = await signRequest(departureRequest, devId, apiKey);
+          
+          const departureResponse = await fetch(departureUrl);
+          if (departureResponse.ok) {
+            const departureData = await departureResponse.json();
+            
+            stopData.departures = (departureData.departures || []).map((dep: any) => ({
+              route_number: dep.route_id,
+              direction: dep.direction_id,
+              scheduled_time: dep.scheduled_departure_utc,
+              estimated_time: dep.estimated_departure_utc || dep.scheduled_departure_utc,
+            }));
+          }
+        } catch (e) {
+          console.error(`Error fetching departures for stop ${stop.stop_id}:`, e);
+        }
+
+        return stopData;
+      })
+    );
 
     return Response.json({
       ok:true,
       data:{ 
-        nearest: stops,
+        nearest: stopsWithDepartures,
         verify_link:"https://www.ptv.vic.gov.au/" 
       },
       disclaimer:"Public transport details can change. Verify via PTV."
